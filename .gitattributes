@@ -1,0 +1,14 @@
+test_data/benchmarking/copyroom_000010.pcd filter=lfs diff=lfs merge=lfs -text
+test_data/benchmarking/lounge_000641.pcd filter=lfs diff=lfs merge=lfs -text
+test_data/benchmarking/stonewall_000381.pcd filter=lfs diff=lfs merge=lfs -text
+test_data/benchmarking/lounge_model_000641.pkl filter=lfs diff=lfs merge=lfs -text
+test_data/benchmarking/stonewall_model_000381.pkl filter=lfs diff=lfs merge=lfs -text
+test_data/benchmarking/copyroom_model_000010.pkl filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/resp_ref.csv filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/weights.csv filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/covariances.csv filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/data.csv filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/means.csv filter=lfs diff=lfs merge=lfs -text
+test_data/FitSmallDim2/precisions_cholesky.csv filter=lfs diff=lfs merge=lfs -text
+test_data/kinit/center_id.txt filter=lfs diff=lfs merge=lfs -text
+test_data/kinit/rand_vals.txt filter=lfs diff=lfs merge=lfs -text

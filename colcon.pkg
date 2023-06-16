@@ -1,0 +1,8 @@
+{
+  "name": "sogmm_py",
+  "dependencies":
+  {
+    "self_organizing_gmm"
+  },
+  "hooks": []
+}

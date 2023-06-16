@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pkl
+*.tex
+*.png
+.DS_Store
+*.ot
+html/
+*.pcd
