@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import kmeans_plusplus
 import time
 
-from kinit_py import KInitf2
-from gmm_py import GMMf2
+from kinit_py import KInitf2CPU as KInitf2
+from gmm_py import GMMf2CPU as GMMf2
 from tests_utils import make_ellipses_gmm
 
 n_samples = 9000

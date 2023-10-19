@@ -13,7 +13,7 @@ from termcolor import cprint
 from time import time
 
 from tests_utils import *
-from gmm_py import GMMf2
+from gmm_py import GMMf2CPU as GMMf2
 
 cprint('loading data', 'grey')
 n_samples = 12000
@@ -21,8 +21,6 @@ n_components = 4
 
 X, _ = datasets.make_blobs(
     n_samples=n_samples, centers=n_components, random_state=10)
-
-np.savetxt('../test_data/FitSmallDim2/data.csv', X, delimiter=',')
 
 # python gmm
 cprint('fitting GMM in python', 'grey')
@@ -54,9 +52,6 @@ cprint('kmeans_plusplus python time %f seconds' %
        (kmeans_end - kmeans_start), 'green')
 resp_ref[indices, np.arange(n_components)] = 1
 
-np.savetxt('../test_data/FitSmallDim2/resp_ref.csv',
-           resp_ref, delimiter=',')
-
 cprint('fitting GMM in cpp', 'grey')
 cg = GMMf2(n_components, 1e-3, 1e-6, 100)
 cpp_gmm_fit_start = time()
@@ -83,17 +78,7 @@ np.testing.assert_array_almost_equal(cg_loaded.covariances_, cg.covariances_)
 np.testing.assert_array_almost_equal(
     cg_loaded.precisions_cholesky_, cg.precisions_cholesky_)
 
-np.savetxt('../test_data/FitSmallDim2/weights.csv',
-           cg_loaded.weights_, delimiter=',')
-np.savetxt('../test_data/FitSmallDim2/means.csv',
-           cg_loaded.means_, delimiter=',')
-np.savetxt('../test_data/FitSmallDim2/covariances.csv',
-           cg_loaded.covariances_, delimiter=',')
-np.savetxt('../test_data/FitSmallDim2/precisions_cholesky.csv',
-           cg_loaded.precisions_cholesky_, delimiter=',')
-
 os.remove('./gmm_cpp.pkl')
-
 # end test pickling
 
 make_ellipses_gmm(cg, ax, case='cpp')

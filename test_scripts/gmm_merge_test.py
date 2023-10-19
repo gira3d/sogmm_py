@@ -6,7 +6,7 @@ import numpy as np
 from termcolor import cprint
 
 from tests_utils import *
-from gmm_py import GMMf2
+from gmm_py import GMMf2CPU as GMMf2
 
 
 def merge_gmm(g1, g2, n_samples1, n_samples2):

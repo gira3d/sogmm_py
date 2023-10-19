@@ -3,6 +3,7 @@
 import open3d
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 
 class VisOpen3D:
@@ -14,7 +15,7 @@ class VisOpen3D:
         Visualizer object used throughout the class.
     """
 
-    def __init__(self, width=1920, height=1080, visible=True):
+    def __init__(self, width=1920, height=1080, visible=True, window_name='Open3D'):
         """
         Parameters
         ----------
@@ -29,7 +30,7 @@ class VisOpen3D:
         self._h = height
         self._v = visible
         self.__vis = open3d.visualization.Visualizer()
-        self.__vis.create_window(width=width, height=height, visible=visible)
+        self.__vis.create_window(width=width, height=height, visible=visible, window_name=window_name)
         self.O3D_K = np.array([[935.30743609,   0.,         959.5],
                                [0.,         935.30743609, 539.5],
                                [0.,           0.,           1.]])
@@ -48,6 +49,9 @@ class VisOpen3D:
 
     def poll_events(self):
         self.__vis.poll_events()
+
+    def get_render_option(self):
+        return self.__vis.get_render_option()
 
     def update_renderer(self):
         self.__vis.update_renderer()
@@ -149,17 +153,39 @@ class VisOpen3D:
         for g in geometries:
             self.add_geometry(g)
 
-    def visualize_pcld(self, pcld=None, pcld_pose=None, K=None, W=None, H=None, scale=1.0):
+    def visualize_pcld(self, pcld=None, pcld_pose=None, K=None, W=None, H=None, scale=1.0, color=None):
         if pcld is None:
             return False
 
         self.add_geometry(pcld)
         self.draw_camera(intrinsic=K, extrinsic=pcld_pose,
-                         width=W, height=H, scale=1.0)
+                         width=W, height=H, scale=1.0, color=color)
         self.update_view_point(extrinsic=np.linalg.inv(pcld_pose))
 
+    def frustrum(self, pose, K, W, H, scale=1.0, color=None):
+        self.draw_camera(intrinsic=K, extrinsic=pose,
+                         width=W, height=H, scale=scale, color=color)
 
-def draw_camera(K, R, t, width, height, scale=1, color=None, viz_axis=False):
+    def frustrums(self, poses, K, W, H, colors, delay=None):
+        for i, p in enumerate(poses):
+            self.frustrum(p, K, W, H, colors[i])
+            if delay is not None:
+                self.poll_events()
+                self.update_renderer()
+                time.sleep(delay)
+
+    def sphere(self, r, point=None, color=[0.1, 0.1, 0.7]):
+        mesh_sphere = open3d.geometry.TriangleMesh.create_sphere(radius=r)
+        if point is not None:
+            mesh_sphere.translate(point)
+
+        mesh_sphere.compute_vertex_normals()
+        mesh_sphere.paint_uniform_color(color)
+
+        self.add_geometry(mesh_sphere)
+
+
+def draw_camera(K, R, t, width, height, scale=1, color=None, viz_axis=True):
     geoms = []
 
     # default color
@@ -170,7 +196,7 @@ def draw_camera(K, R, t, width, height, scale=1, color=None, viz_axis=False):
     s = 1 / scale
 
     # intrinsics
-    Ks = np.array([[K[0, 0] * s,            0, K[0, 2]],
+    Ks = np.array([[K[0, 0] * s,  0, K[0, 2]],
                    [0,  K[1, 1] * s, K[1, 2]],
                    [0,            0, K[2, 2]]])
     Kinv = np.linalg.inv(Ks)

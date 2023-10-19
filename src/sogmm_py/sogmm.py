@@ -1,13 +1,14 @@
 """Self-Organizing Gaussian Mixture Models."""
 
+import copy
 import numpy as np
-from sklearn.cluster import kmeans_plusplus
 import pickle
 from scipy.stats import multivariate_normal
 
-from sogmm_py.utils import check_random_state, matrix_to_tensor, np_to_o3d
+from sogmm_py.utils import check_random_state, matrix_to_tensor, np_to_o3d, tensor_to_matrix
 
 from mean_shift_py import MeanShift as MSf2
+from kinit_py import KInitf4CPU
 from gmm_py import GMMf4CPU
 try:
     from gmm_open3d_py import GMMf4GPU
@@ -44,6 +45,7 @@ class SOGMM(object):
         self.random_state = check_random_state(random_state)
         self.model = None
         self.compute = compute
+        self.latest_model = None
 
     def fit(self, pcld):
         """Fit SOGMM over a 4-D point cloud.
@@ -91,11 +93,9 @@ class SOGMM(object):
 
         # K-Means++
         resp = np.zeros((n_samples, n_components))
-        _, indices = kmeans_plusplus(
-            pcld,
-            n_components,
-            random_state=self.random_state,
-        )
+        kinit = KInitf4CPU()
+        _, indices = kinit.resp_calc(
+            pcld, n_components)
         resp[indices, np.arange(n_components)] = 1
 
         # Expectation-Maximization (EM) to get the local model
@@ -114,8 +114,11 @@ class SOGMM(object):
             local_model = GMMf4CPU(n_components)
             success = local_model.fit(pcld, resp)
 
+        if success:
+            self.latest_model = local_model
+
         if self.model is None and success:
-            self.model = local_model
+            self.model = copy.deepcopy(local_model)
             return self.model
         elif self.model is not None and success:
             self.model.merge(local_model)
@@ -171,11 +174,11 @@ class SOGMM(object):
 
         expected_values = np.zeros((n_samples, 1))
         expected_values = np.multiply(normalized_weights,
-                                     means).sum(axis=1, keepdims=True)
+                                      means).sum(axis=1, keepdims=True)
 
         uncerts = np.zeros((n_samples, 1))
         uncerts = np.multiply(normalized_weights, np.square(means) +
-                                      vars).sum(axis=1, keepdims=True)
+                              vars).sum(axis=1, keepdims=True)
         uncerts = uncerts - np.square(expected_values)
 
         print('uncerts contains nans?', np.isnan(uncerts).any())
@@ -241,6 +244,10 @@ class SOGMM(object):
 
         with open(path, 'wb') as f:
             pickle.dump(self.model, f)
+
+    def load_global_model(self, path):
+        with open(path, 'rb') as f:
+            self.model = pickle.load(f)
 
 
 if __name__ == "__main__":

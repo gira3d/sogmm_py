@@ -1,0 +1,13 @@
+path_datasets: "/media/fractal/T7/datasets"
+path_results: "/media/fractal/T7/rss2023-resub/results"
+dataset_name: "livingroom2"
+color_ext: "jpg"
+nframes: 2350
+bandwidth: 0.03
+deci: 5.0
+machine: "fractal"
+zfill: 5
+l_thres: 3.0
+# l_thres_list: [-10.0, -6.0, -3.0, 0.0, 3.0]
+# l_thres_list: [3.0]
+bw_list: [0.05, 0.04, 0.03, 0.02]

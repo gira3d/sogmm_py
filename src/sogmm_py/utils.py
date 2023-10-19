@@ -5,6 +5,7 @@ import cv2
 from cv2 import INTER_NEAREST
 import numpy as np
 import open3d as o3d
+import open3d.core as o3c
 import numbers
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
@@ -250,7 +251,7 @@ class ImageUtils(object):
         novel_pcld = np.zeros((len(inv_idxs), 4))
         novel_pcld[:, 0:3] = d_pcld2_w[:, 0:3]
         novel_pcld[:, 3] = pcld_cf[inv_idxs, 3]
-        
+
         return novel_pcld
 
 
@@ -343,6 +344,44 @@ def np_to_o3d(np_pcld, color=None):
         return o3d_pcld
 
 
+def np_to_o3d_tensor(np_pcld, color=[1.0, 0.0, 0.0]):
+    """Numpy array to Open3D point cloud conversion. 
+
+    Parameters
+    ----------
+    np_pcld : array, shape (n_samples, n_features)
+        Input numpy point cloud. Note that `n_features` can be either 3, 4, or 6.
+
+    Returns
+    -------
+    o3d_pcld : open3d.geometry.PointCloud
+        Converted open3d point cloud
+    """
+
+    n_points = np_pcld.shape[0]
+    n_features = np_pcld.shape[1]
+
+    default_colors = np.zeros((n_points, 3), dtype=np.float32)
+    default_colors[:, 0] = color[0] * np.ones(n_points, dtype=np.float32)
+    default_colors[:, 1] = color[1] * np.ones(n_points, dtype=np.float32)
+    default_colors[:, 2] = color[2] * np.ones(n_points, dtype=np.float32)
+
+    o3d_pcld = o3d.t.geometry.PointCloud(o3c.Tensor(np_pcld[:, 0:3]))
+    o3d_pcld.point.colors = o3c.Tensor(default_colors)
+
+    if n_features == 4:
+        # single modal color data; usually grayscale or thermal
+        o3d_pcld.point.colors = o3c.Tensor(np.concatenate((np_pcld[:, 3][:, np.newaxis],
+                                                           np_pcld[:, 3][:, np.newaxis],
+                                                           np_pcld[:, 3][:, np.newaxis]), axis=1))
+
+    if n_features == 6:
+        # full color information has been provided
+        o3d_pcld.point.colors = o3d.Tensor(np_pcld[:, 3:6])
+
+    return o3d_pcld
+
+
 def o3d_to_np(o3d_pcld):
     """Open3D point cloud to 4D numpy array conversion.
 
@@ -357,12 +396,14 @@ def o3d_to_np(o3d_pcld):
         Output numpy point cloud. Note that `n_features` here are fixed to 4.
     """
 
-    xyz = np.asarray(o3d_pcld.points)
-    colors = np.asarray(o3d_pcld.colors)
+    xyz = np.asarray(o3d_pcld.points, dtype=np.float32)
+    colors = np.asarray(o3d_pcld.colors, dtype=np.float32)
 
-    ret = np.zeros((xyz.shape[0], 4))
+    ret = np.zeros((xyz.shape[0], 4), dtype=np.float32)
     ret[:, 0:3] = xyz
-    ret[:, 3] = colors[:, 0]
+    # ret[:, 3] = np.mean(colors, axis=1)
+    # https://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
+    ret[:, 3] = 0.2989 * colors[:, 0] + 0.5870 * colors[:, 1] + 0.1140*colors[:, 2]
 
     return ret
 
@@ -392,18 +433,18 @@ def calculate_depth_metrics(gt, pr, th=0.01):
     recon_err_std : float
         Std. Dev. reconstruction error.
     """
-    # closest dist for each gt point
-    d1 = gt.compute_point_cloud_distance(pr)
+    # closest dist for each pr point
+    d1, _ = pr.compute_point_cloud_distance_indices(gt)
     # reconstruction error is the mean distance of each 3D point
     recon_err_mean = np.mean(np.asarray(d1))
     recon_err_std = np.std(np.asarray(d1))
-    # closest dist for each pred point
-    d2 = pr.compute_point_cloud_distance(gt)
+    # closest dist for each gt point
+    d2, _ = gt.compute_point_cloud_distance_indices(pr)
     if len(d1) and len(d2):
         # how many of our sampled points lie close to a gt point?
-        recall = float(sum(d < th for d in d2)) / float(len(d2))
+        recall = float(sum(d < th for d in d1)) / float(len(d1))
         # how many of ground truth points are matched?
-        precision = float(sum(d < th for d in d1)) / float(len(d1))
+        precision = float(sum(d < th for d in d2)) / float(len(d2))
 
         if recall+precision > 0:
             fscore = 2 * recall * precision / (recall + precision)
@@ -414,6 +455,63 @@ def calculate_depth_metrics(gt, pr, th=0.01):
         precision = 0
         recall = 0
     return fscore, precision, recall, recon_err_mean, recon_err_std
+
+def calculate_all_metrics(gt, pr, th=0.01):
+    """Calculate all reconstruction metrics.
+
+    Parameters
+    ----------
+    gt : open3d.geometry.PointCloud
+        Ground truth Open3D point cloud
+    pr : open3d.geometry.PointCloud
+        Reconstructed/Predicted Open3d point cloud
+    th : float
+        Minimum relevant point cloud to mesh distance
+
+    Returns
+    -------
+    fscore : float
+        F-score of reconstruction.
+    precision : float
+        Precision of reconstruction.
+    recall : float
+        Recall of reconstruction.
+    recon_err_mean : float
+        Mean reconstruction error.
+    recon_err_std : float
+        Std. Dev. reconstruction error.
+    """
+    # closest dist for each pr point
+    d1, i1 = pr.compute_point_cloud_distance_indices(gt)
+
+    # reconstruction error is the mean distance of each 3D point
+    recon_err_mean = np.mean(np.asarray(d1))
+    recon_err_std = np.std(np.asarray(d1))
+
+    # psnr intensity
+    gt_np = o3d_to_np(gt)
+    pr_np = o3d_to_np(pr)
+    err_i = np.array([gt_np[i1[a], 3] - pr_np[a, 3] for a in range(len(i1))])
+    mse_i = (1.0 / float(len(i1))) * (np.sum(np.square(err_i)))
+    psnr_i = 20.0 * np.log10(np.max(gt_np[:, 3]) / np.sqrt(mse_i))
+
+    # closest dist for each gt point
+    d2, _ = gt.compute_point_cloud_distance_indices(pr)
+    if len(d1) and len(d2):
+        # how many of our sampled points lie close to a gt point?
+        precision = float(sum(d < th for d in d1)) / float(len(d1))
+        # how many of ground truth points are matched?
+        recall = float(sum(d < th for d in d2)) / float(len(d2))
+
+        if recall+precision > 0:
+            fscore = 2 * recall * precision / (recall + precision)
+        else:
+            fscore = 0
+    else:
+        fscore = 0
+        precision = 0
+        recall = 0
+    return fscore, precision, recall, recon_err_mean, psnr_i, recon_err_std
 
 
 def calculate_color_metrics(gt, pr):
@@ -459,6 +557,7 @@ def matrix_to_tensor(matrix, dim):
         tensor[i, :, :] = matrix[i, :].reshape((dim, dim))
 
     return tensor
+
 
 def dir_path(string):
     if os.path.isdir(string):

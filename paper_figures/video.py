@@ -8,28 +8,26 @@ from sogmm_py.utils import *
 
 def custom_draw_geometry_with_key_callback(pcd):
 
+    def rotate_view(vis):
+        ctr = vis.get_view_control()
+        ctr.rotate(0.75, 0.0)
+        return False
+
     def change_background_to_black(vis):
         opt = vis.get_render_option()
+        opt.point_size = 2
         opt.background_color = np.asarray([0, 0, 0])
         return False
 
     key_to_callback = {}
     key_to_callback[ord("K")] = change_background_to_black
+    key_to_callback[ord("R")] = rotate_view
     o3d.visualization.draw_geometries_with_key_callbacks([pcd], key_to_callback)
 
-results_path = '/Volumes/GoogleDrive/My Drive/phd/adaptive_perception/results'
+pcld = o3d.io.read_point_cloud('/media/fractal/T7/rss2023-resub/results/isogmm_results/livingroom1_bw_0_02_pr.pcd')
+pcld_np = o3d_to_np(pcld)
+pcld_np_cropped = pcld_np[pcld_np[:, 1] < 2.6, :]
+pcld_np_cropped_2 = pcld_np_cropped[pcld_np_cropped[:, 2] < 3.1, :]
+pcld_cropped_2 = np_to_o3d(pcld_np_cropped_2)
 
-with open(os.path.join(results_path, 'cave/cave.pkl'), 'rb') as f:
-    loaded_model = pickle.load(f)
-
-pts = loaded_model.sample(3*loaded_model.support_size_, 1.8)
-np.savetxt('cave_pts.txt', pts)
-
-pcd = np_to_o3d(pts)
-
-# pcd = o3d.geometry.PointCloud()
-# pcd.points = o3d.utility.Vector3dVector(pts[:, :3])
-# colors = plt.get_cmap("inferno")(pts[:, 3])
-# pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
-
-custom_draw_geometry_with_key_callback(pcd)
+custom_draw_geometry_with_key_callback(pcld_cropped_2)
