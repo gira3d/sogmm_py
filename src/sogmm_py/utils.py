@@ -382,7 +382,7 @@ def np_to_o3d_tensor(np_pcld, color=[1.0, 0.0, 0.0]):
     return o3d_pcld
 
 
-def o3d_to_np(o3d_pcld):
+def o3d_to_np(o3d_pcld, color=None):
     """Open3D point cloud to 4D numpy array conversion.
 
     Parameters
@@ -396,6 +396,9 @@ def o3d_to_np(o3d_pcld):
         Output numpy point cloud. Note that `n_features` here are fixed to 4.
     """
 
+    if color is not None:
+        o3d_pcld.paint_uniform_color(color)
+
     xyz = np.asarray(o3d_pcld.points, dtype=np.float32)
     colors = np.asarray(o3d_pcld.colors, dtype=np.float32)
 
@@ -403,7 +406,8 @@ def o3d_to_np(o3d_pcld):
     ret[:, 0:3] = xyz
     # ret[:, 3] = np.mean(colors, axis=1)
     # https://stackoverflow.com/questions/687261/converting-rgb-to-grayscale-intensity
-    ret[:, 3] = 0.2989 * colors[:, 0] + 0.5870 * colors[:, 1] + 0.1140*colors[:, 2]
+    if len(colors) > 0:
+        ret[:, 3] = 0.2989 * colors[:, 0] + 0.5870 * colors[:, 1] + 0.1140*colors[:, 2]
 
     return ret
 
